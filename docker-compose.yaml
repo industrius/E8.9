@@ -1,0 +1,86 @@
+version: '3.3'
+services:
+
+  web:
+    build: ./web_word_parse
+    container_name: e_8_9_web
+    command: bash -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - 9000:8000
+    volumes:
+      - ./web_word_parse:/data
+    depends_on:
+      - data_db
+    environment:
+      - CELERY_REDIS=redis://broker_db:6379/0
+      - DATABASE_URL=postgres://postgres:password@data_db/e_8_9_database
+      - NSQ_ADDR=nsqd:4150
+
+  data_db:
+    image: postgres
+    container_name: e_8_9_postgres
+    ports:
+      - 5433:5432
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=e_8_9_database
+
+  broker_db:
+    image: redis
+    container_name: e_8_9_redis
+
+  celery:
+    build: ./web_word_parse
+    command: celery -A web_word_parse worker -l info
+    container_name: e_8_9_celery
+    volumes:
+      - ./web_word_parse:/data
+    environment:
+      - CELERY_REDIS=redis://broker_db:6379/0
+      - DATABASE_URL=postgres://postgres:password@data_db/e_8_9_database
+      - NSQ_ADDR=nsqd:4151
+    depends_on:
+      - broker_db
+      - web
+
+  nsqlookupd:
+    image: nsqio/nsq
+    command: /nsqlookupd
+    container_name: e_8_9_nsq_lookup
+    ports:
+      - "4160:4160"
+      - "4161:4161"
+
+  nsqd:
+    image: nsqio/nsq
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160
+    container_name: e_8_9_nsq_daemon
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4150:4150"
+      - "4151:4151"
+      
+  nsqadmin:
+    image: nsqio/nsq
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    container_name: e_8_9_nsq_admin
+    depends_on:
+      - nsqlookupd
+      - nsqd  
+    ports:
+      - "4171:4171"
+
+  consumer:
+    build: ./consumer
+    container_name: e_8_9_nsq_consumer
+    environment:
+      - NSQ_ADDR=nsqd:4150
+      - POST_ADDR=web:8000
+    depends_on:
+      - nsqd
+      - nsqlookupd
+      - web

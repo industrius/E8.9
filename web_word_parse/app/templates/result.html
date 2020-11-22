@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result</title>
+</head>
+<body>
+    <h3>E8.9 Практическое задание</h3>
+    <hr>
+    <table>
+        <tr>
+            <th>Адрес</th>
+            <th>Слово</th>
+            <th>Количество</th>
+            <th>Статус</th>
+        </tr>
+        {% for result in results %}
+        <tr>
+            <td width="200">{{ result.address }}</td>
+            <td width="60">{{ result.word }}</td>
+            <td width="60">{{ result.words_count }}</td>
+            <td width="60">{{ result.http_status_code }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <hr>
+    <a href="/">На главную</a>
+    <script>
+        let current = "none"
+
+        function Updater(){
+            window.setInterval(() => {
+                const xhr = new XMLHttpRequest()
+                xhr.withCredentials = true
+                xhr.timeout = 5000
+                xhr.open("GET","/count", true)
+                xhr.send()
+
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState != 4) return
+                    if (xhr.status != 200) {
+                        console.log("Ошибка: " + (xhr.status ? xhr.statusText : "запрос не удался"))
+                        return
+                    }
+                    console.log("Количество Results: " + xhr.responseText)
+                    console.log("Текущее значение Results: " + current)
+                    if (current == "none"){
+                        current = xhr.responseText
+                        console.log("Сохраняем первое значение Results.")
+                    }else if(current != xhr.responseText){
+                        console.log("Новое значение Results, перегрузить страничку!")
+                        window.location.reload()
+                    }else{
+                        console.log("Количество Results не изменилось.")
+                    }
+                }
+            }, 2000)
+        }
+
+        document.addEventListener("DOMContentLoaded", function(){
+            Updater()
+        })
+    </script>
+</body>
+</html>
